@@ -166,7 +166,7 @@ router.get('/me', async (req, res) => {
       // 4. Send email
       const transporter = getTransporter();
       await transporter.sendMail({
-        from: process.env.EMAIL_FROM,
+        from: process.env.EMAIL_USER,
         to: user.email,
         subject: 'E-Study Password Reset',
         html: `
