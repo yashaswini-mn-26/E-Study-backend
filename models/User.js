@@ -8,7 +8,7 @@ const UserSchema = new mongoose.Schema({
   email: {
     type: String,
     required: true,
-    unique: true // This ensures no two students use the same email!
+    unique: true
   },
   password: {
     type: String,
@@ -16,12 +16,14 @@ const UserSchema = new mongoose.Schema({
   },
   avatar: {
     type: String,
-    default: "/yashaswini.png" // We can use your default avatar for new signups!
+    default: "/yashaswini.png" 
   },
   date: {
     type: Date,
     default: Date.now
-  }
+  },
+  resetPasswordToken: String,
+  resetPasswordExpire: Date
 });
 
 module.exports = mongoose.model('User', UserSchema);
