@@ -48,14 +48,13 @@ router.post('/google', async (req, res) => {
         avatar: user.avatar
       }
     });
-
   } catch (err) {
     console.error("Google Auth Error:", err);
     res.status(400).json({ msg: "Google authentication failed" });
   }
 });
 
-// --- SIGNUP ROUTE ---
+
 router.post('/signup', async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -78,7 +77,7 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// --- LOGIN ROUTE ---
+
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -93,7 +92,7 @@ router.post('/login', async (req, res) => {
     res.json({ token, user: { name: user.name, email: user.email } });
 
   } catch (err) {
-    res.status(500).send("Server Error");
+    res.status(500).send("Server Error, please try later");
   }
 });
 

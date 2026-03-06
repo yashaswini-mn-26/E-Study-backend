@@ -20,14 +20,14 @@ app.use('/api/auth', authRoutes);
 
 
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch(err => console.log("❌ MongoDB Connection Error:", err));
+  .then(() => console.log("Connected to MongoDB"))
+  .catch(err => console.log("MongoDB Connection Error:", err));
 
 app.get('/', (req, res) => {
-  res.send('E-Study Server is Running! 🚀');
+  res.send('E-Study Server is Running!');
 });
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server is flying on port ${PORT}`);
+  console.log(`Server is flying on port ${PORT}`);
 });
