@@ -112,80 +112,80 @@ router.get('/me', async (req, res) => {
 });
 
 
-const getTransporter = () => {
-  if (process.env.NODE_ENV === 'development') {
-    // Development: Mailtrap (Safe testing)
-    return nodemailer.createTransport({
-      host: process.env.MAILTRAP_HOST,
-      port: process.env.MAILTRAP_PORT,
-      auth: {
-        user: process.env.MAILTRAP_USER,
-        pass: process.env.MAILTRAP_PASS,
-      },
-    });
-  } else {
-    // Production/Default: Gmail via Port 587 (Bypasses firewall blocks)
-    return nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,       // <-- MUST be false when using port 587
-      requireTLS: true,    // <-- Forces secure connection
-      auth: {
-        user: process.env.EMAIL_USER, // Your real Gmail address
-        pass: process.env.EMAIL_PASS, // Your 16-letter Google App Password
-      },
-    });
-  }
-};
-// --- FORGOT PASSWORD ---
-router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      // Generic message to avoid revealing if user exists
-      return res.json({
-        msg: "If an account exists with this email, a reset link has been sent."
+  const getTransporter = () => {
+    if (process.env.NODE_ENV === 'development') {
+      // Development: Mailtrap (Safe testing)
+      return nodemailer.createTransport({
+        host: process.env.MAILTRAP_HOST,
+        port: process.env.MAILTRAP_PORT,
+        auth: {
+          user: process.env.MAILTRAP_USER,
+          pass: process.env.MAILTRAP_PASS,
+        },
+      });
+    } else {
+      // Production/Default: Gmail via Port 587 (Bypasses firewall blocks)
+      return nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,       // <-- MUST be false when using port 587
+        requireTLS: true,    // <-- Forces secure connection
+        auth: {
+          user: process.env.EMAIL_USER, // Your real Gmail address
+          pass: process.env.EMAIL_PASS, // Your 16-letter Google App Password
+        },
       });
     }
+  };
+  // --- FORGOT PASSWORD ---
+  router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
 
-    // 1. Generate token & hash
-    const resetToken = crypto.randomBytes(20).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    try {
+      const user = await User.findOne({ email });
+      if (!user) {
+        // Generic message to avoid revealing if user exists
+        return res.json({
+          msg: "If an account exists with this email, a reset link has been sent."
+        });
+      }
 
-    // 2. Store in DB
-    user.resetPasswordToken = hashedToken;
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 mins
-    await user.save();
+      // 1. Generate token & hash
+      const resetToken = crypto.randomBytes(20).toString('hex');
+      const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
 
-    // 3. Construct reset URL using environment variable
-    const frontendURL = process.env.FRONTEND_URL || 'https://e-studyy.vercel.app';
-    const resetUrl = `${frontendURL}/reset-password/${resetToken}`;
+      // 2. Store in DB
+      user.resetPasswordToken = hashedToken;
+      user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 mins
+      await user.save();
 
-    // 4. Send email
-    const transporter = getTransporter();
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: user.email,
-      subject: 'E-Study Password Reset',
-      html: `
-        <h3>Password Reset Request</h3>
-        <p>Click the link below to reset your password. This link is valid for 10 minutes.</p>
-        <a href="${resetUrl}" target="_blank">${resetUrl}</a>
-        <p>If you did not request this, ignore this email.</p>
-      `,
-    });
+      // 3. Construct reset URL using environment variable
+      const frontendURL = process.env.FRONTEND_URL || 'https://e-studyy.vercel.app';
+      const resetUrl = `${frontendURL}/reset-password/${resetToken}`;
 
-    res.json({
-      msg: "If an account exists with this email, a reset link has been sent."
-    });
+      // 4. Send email
+      const transporter = getTransporter();
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM,
+        to: user.email,
+        subject: 'E-Study Password Reset',
+        html: `
+          <h3>Password Reset Request</h3>
+          <p>Click the link below to reset your password. This link is valid for 10 minutes.</p>
+          <a href="${resetUrl}" target="_blank">${resetUrl}</a>
+          <p>If you did not request this, ignore this email.</p>
+        `,
+      });
 
-  } catch (err) {
-    console.error("Forgot Password Error:", err);
-    res.status(500).json({ msg: "Unable to send reset email. Please try again later." });
-  }
-});
+      res.json({
+        msg: "If an account exists with this email, a reset link has been sent."
+      });
+
+    } catch (err) {
+      console.error("Forgot Password Error:", err);
+      res.status(500).json({ msg: "Unable to send reset email. Please try again later." });
+    }
+  });
 
 // --- RESET PASSWORD ---
 router.post('/reset-password/:token', async (req, res) => {
