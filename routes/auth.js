@@ -4,12 +4,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const crypto = require('crypto'); // Built-in Node tool for tokens
-const nodemailer = require('nodemailer'); // For sending emails
+const sgMail = require('@sendgrid/mail'); // NEW: SendGrid API for emails
 
 const { OAuth2Client } = require('google-auth-library');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 
+// --- GOOGLE ROUTE ---
 router.post('/google', async (req, res) => {
   const { idToken } = req.body;
 
@@ -55,6 +56,7 @@ router.post('/google', async (req, res) => {
 });
 
 
+// --- SIGNUP ROUTE ---
 router.post('/signup', async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -78,6 +80,7 @@ router.post('/signup', async (req, res) => {
 });
 
 
+// --- LOGIN ROUTE ---
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -111,80 +114,58 @@ router.get('/me', async (req, res) => {
 });
 
 
-  const getTransporter = () => {
-    if (process.env.NODE_ENV === 'development') {
-      // Development: Mailtrap (Safe testing)
-      return nodemailer.createTransport({
-        host: process.env.MAILTRAP_HOST,
-        port: process.env.MAILTRAP_PORT,
-        auth: {
-          user: process.env.MAILTRAP_USER,
-          pass: process.env.MAILTRAP_PASS,
-        },
-      });
-    } else {
-      // Production/Default: Gmail via Port 587 (Bypasses firewall blocks)
-      return nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,       // <-- MUST be false when using port 587
-        requireTLS: true,    // <-- Forces secure connection
-        auth: {
-          user: process.env.EMAIL_USER, // Your real Gmail address
-          pass: process.env.EMAIL_PASS, // Your 16-letter Google App Password
-        },
-      });
-    }
-  };
-  // --- FORGOT PASSWORD ---
-  router.post('/forgot-password', async (req, res) => {
-    const { email } = req.body;
+// --- FORGOT PASSWORD ---
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body;
 
-    try {
-      const user = await User.findOne({ email });
-      if (!user) {
-        // Generic message to avoid revealing if user exists
-        return res.json({
-          msg: "If an account exists with this email, a reset link has been sent."
-        });
-      }
-
-      // 1. Generate token & hash
-      const resetToken = crypto.randomBytes(20).toString('hex');
-      const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-
-      // 2. Store in DB
-      user.resetPasswordToken = hashedToken;
-      user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 mins
-      await user.save();
-
-      // 3. Construct reset URL using environment variable
-      const frontendURL = process.env.FRONTEND_URL || 'https://e-studyy.vercel.app';
-      const resetUrl = `${frontendURL}/reset-password/${resetToken}`;
-
-      // 4. Send email
-      const transporter = getTransporter();
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: user.email,
-        subject: 'E-Study Password Reset',
-        html: `
-          <h3>Password Reset Request</h3>
-          <p>Click the link below to reset your password. This link is valid for 10 minutes.</p>
-          <a href="${resetUrl}" target="_blank">${resetUrl}</a>
-          <p>If you did not request this, ignore this email.</p>
-        `,
-      });
-
-      res.json({
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Generic message to avoid revealing if user exists
+      return res.json({
         msg: "If an account exists with this email, a reset link has been sent."
       });
-
-    } catch (err) {
-      console.error("Forgot Password Error:", err);
-      res.status(500).json({ msg: "Unable to send reset email. Please try again later." });
     }
-  });
+
+    // 1. Generate token & hash
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // 2. Store in DB
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 mins
+    await user.save();
+
+    // 3. Construct reset URL using environment variable
+    const frontendURL = process.env.FRONTEND_URL || 'https://e-studyy.vercel.app';
+    const resetUrl = `${frontendURL}/reset-password/${resetToken}`;
+
+    // 4. Send email using SendGrid API
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    
+    const msg = {
+      to: user.email,
+      from: process.env.EMAIL_USER, // This MUST be the Gmail you verified in SendGrid
+      subject: 'E-Study Password Reset',
+      html: `
+        <h3>Password Reset Request</h3>
+        <p>Click the link below to reset your password. This link is valid for 10 minutes.</p>
+        <a href="${resetUrl}" target="_blank" style="display:inline-block; padding:10px 20px; background-color:#7CA152; color:white; text-decoration:none; border-radius:5px; margin-top:10px;">Reset Password</a>
+        <p>If you did not request this, ignore this email.</p>
+      `,
+    };
+
+    await sgMail.send(msg);
+
+    res.json({
+      msg: "If an account exists with this email, a reset link has been sent."
+    });
+
+  } catch (err) {
+    console.error("Forgot Password Error:", err.response ? err.response.body : err);
+    res.status(500).json({ msg: "Unable to send reset email. Please try again later." });
+  }
+});
 
 // --- RESET PASSWORD ---
 router.post('/reset-password/:token', async (req, res) => {
