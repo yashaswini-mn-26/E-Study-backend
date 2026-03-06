@@ -113,7 +113,6 @@ router.get('/me', async (req, res) => {
   }
 });
 
-
 // --- FORGOT PASSWORD ---
 router.post('/forgot-password', async (req, res) => {
   const { email } = req.body;
