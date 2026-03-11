@@ -7,6 +7,7 @@ const crypto = require('crypto'); // Built-in Node tool for tokens
 const sgMail = require('@sendgrid/mail'); // NEW: SendGrid API for emails
 
 const { OAuth2Client } = require('google-auth-library');
+const { decode } = require('punycode');
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 
@@ -104,9 +105,12 @@ router.get('/me', async (req, res) => {
   try {
     const token = req.header('x-auth-token'); 
     if (!token) return res.status(401).json({ msg: "No token, authorization denied" });
+    console.log("Toekn", token)
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("decoded", decoded)
     const user = await User.findById(decoded.id).select('-password');
+    console.log("user", user)
     res.json(user);
   } catch (err) {
     res.status(401).json({ msg: "Token is not valid" });

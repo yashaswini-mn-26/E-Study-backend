@@ -5,6 +5,8 @@ const CourseSchema = new mongoose.Schema({
   thumbnail: { type: String, required: true },
   authorName: { type: String, required: true },
   authorRole: { type: String, required: true },
+  duration: { type: String, required: true }, // e.g., "12hrs 30 mins"
+  youtubeId: { type: String, required: true }, // e.g., "rfscVS0vtbw"
   createdAt: { type: Date, default: Date.now }
 });
 
